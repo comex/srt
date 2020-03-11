@@ -56,6 +56,7 @@ modified by
 #include <iomanip> // Logging 
 #include <srt_compat.h>
 #include <csignal>
+#include <dispatch/dispatch.h>
 
 #include "channel.h"
 #include "packet.h"
@@ -70,6 +71,11 @@ modified by
 
 using namespace std;
 using namespace srt_logging;
+
+static bool enable_timing_spam() {
+    static bool ret = !!getenv("TIMING_SPAM_SRT");
+    return ret;
+}
 
 CChannel::CChannel():
 m_iSocket(),
@@ -505,6 +511,14 @@ int CChannel::sendto(const sockaddr_any& addr, CPacket& packet) const
 
    packet.toHL();
 
+    if (enable_timing_spam()) {
+        uint64_t xnow;
+        xnow = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1000;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^{
+            printf("%llu send %d bytes\n", (long long)xnow, res);
+        });
+    }
+
    return res;
 }
 
@@ -584,6 +598,14 @@ EReadStatus CChannel::recvfrom(sockaddr_any& w_addr, CPacket& w_packet) const
         }
 
         goto Return_error;
+    }
+
+    if (enable_timing_spam()) {
+        uint64_t xnow;
+        xnow = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1000;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^{
+            printf("%llu recv %d bytes\n", (long long)xnow, recv_size);
+        });
     }
 
 #else
