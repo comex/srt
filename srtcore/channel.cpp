@@ -1,3 +1,4 @@
+#define TIMING_SPAM 0
 /*
  * SRT - Secure, Reliable, Transport
  * Copyright (c) 2018 Haivision Systems Inc.
@@ -56,7 +57,9 @@ modified by
 #include <iomanip> // Logging 
 #include <srt_compat.h>
 #include <csignal>
+#if TIMING_SPAM
 #include <dispatch/dispatch.h>
+#endif
 
 #include "channel.h"
 #include "packet.h"
@@ -72,10 +75,13 @@ modified by
 using namespace std;
 using namespace srt_logging;
 
+
+#if TIMING_SPAM
 static bool enable_timing_spam() {
     static bool ret = !!getenv("TIMING_SPAM_SRT");
     return ret;
 }
+#endif
 
 CChannel::CChannel():
 m_iSocket(),
@@ -511,6 +517,7 @@ int CChannel::sendto(const sockaddr_any& addr, CPacket& packet) const
 
    packet.toHL();
 
+#if TIMING_SPAM
     if (enable_timing_spam()) {
         uint64_t xnow;
         xnow = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1000;
@@ -518,6 +525,7 @@ int CChannel::sendto(const sockaddr_any& addr, CPacket& packet) const
             printf("%llu send %d bytes\n", (long long)xnow, res);
         });
     }
+#endif
 
    return res;
 }
@@ -600,6 +608,7 @@ EReadStatus CChannel::recvfrom(sockaddr_any& w_addr, CPacket& w_packet) const
         goto Return_error;
     }
 
+#if TIMING_SPAM
     if (enable_timing_spam()) {
         uint64_t xnow;
         xnow = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1000;
@@ -607,6 +616,7 @@ EReadStatus CChannel::recvfrom(sockaddr_any& w_addr, CPacket& w_packet) const
             printf("%llu recv %d bytes\n", (long long)xnow, recv_size);
         });
     }
+#endif
 
 #else
     // XXX REFACTORING NEEDED!
