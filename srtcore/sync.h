@@ -8,8 +8,8 @@
  *
  */
 #pragma once
-#ifndef __SRT_SYNC_H__
-#define __SRT_SYNC_H__
+#ifndef INC_SRT_SYNC_H
+#define INC_SRT_SYNC_H
 
 //#define ENABLE_STDCXX_SYNC
 //#define ENABLE_CXX17
@@ -49,7 +49,7 @@ using Duration = chrono::duration<Clock>;
 /// Class template srt::sync::Duration represents a time interval.
 /// It consists of a count of ticks of _Clock.
 /// It is a wrapper of system timers in case of non-C++11 chrono build.
-template <class _Clock>
+template <class Clock>
 class Duration
 {
 public:
@@ -121,7 +121,7 @@ inline bool is_zero(const steady_clock::time_point& t)
 }
 
 #else
-template <class _Clock>
+template <class Clock>
 class TimePoint;
 
 class steady_clock
@@ -135,7 +135,7 @@ public:
 };
 
 /// Represents a point in time
-template <class _Clock>
+template <class Clock>
 class TimePoint
 {
 public:
@@ -149,7 +149,7 @@ public:
     {
     }
 
-    TimePoint(const TimePoint<_Clock>& other)
+    TimePoint(const TimePoint<Clock>& other)
         : m_timestamp(other.m_timestamp)
     {
     }
@@ -157,25 +157,25 @@ public:
     ~TimePoint() {}
 
 public: // Relational operators
-    inline bool operator<(const TimePoint<_Clock>& rhs) const { return m_timestamp < rhs.m_timestamp; }
-    inline bool operator<=(const TimePoint<_Clock>& rhs) const { return m_timestamp <= rhs.m_timestamp; }
-    inline bool operator==(const TimePoint<_Clock>& rhs) const { return m_timestamp == rhs.m_timestamp; }
-    inline bool operator!=(const TimePoint<_Clock>& rhs) const { return m_timestamp != rhs.m_timestamp; }
-    inline bool operator>=(const TimePoint<_Clock>& rhs) const { return m_timestamp >= rhs.m_timestamp; }
-    inline bool operator>(const TimePoint<_Clock>& rhs) const { return m_timestamp > rhs.m_timestamp; }
+    inline bool operator<(const TimePoint<Clock>& rhs) const { return m_timestamp < rhs.m_timestamp; }
+    inline bool operator<=(const TimePoint<Clock>& rhs) const { return m_timestamp <= rhs.m_timestamp; }
+    inline bool operator==(const TimePoint<Clock>& rhs) const { return m_timestamp == rhs.m_timestamp; }
+    inline bool operator!=(const TimePoint<Clock>& rhs) const { return m_timestamp != rhs.m_timestamp; }
+    inline bool operator>=(const TimePoint<Clock>& rhs) const { return m_timestamp >= rhs.m_timestamp; }
+    inline bool operator>(const TimePoint<Clock>& rhs) const { return m_timestamp > rhs.m_timestamp; }
 
 public: // Arithmetic operators
-    inline Duration<_Clock> operator-(const TimePoint<_Clock>& rhs) const
+    inline Duration<Clock> operator-(const TimePoint<Clock>& rhs) const
     {
-        return Duration<_Clock>(m_timestamp - rhs.m_timestamp);
+        return Duration<Clock>(m_timestamp - rhs.m_timestamp);
     }
-    inline TimePoint operator+(const Duration<_Clock>& rhs) const { return TimePoint(m_timestamp + rhs.count()); }
-    inline TimePoint operator-(const Duration<_Clock>& rhs) const { return TimePoint(m_timestamp - rhs.count()); }
+    inline TimePoint operator+(const Duration<Clock>& rhs) const { return TimePoint(m_timestamp + rhs.count()); }
+    inline TimePoint operator-(const Duration<Clock>& rhs) const { return TimePoint(m_timestamp - rhs.count()); }
 
 public: // Assignment operators
-    inline void operator=(const TimePoint<_Clock>& rhs) { m_timestamp = rhs.m_timestamp; }
-    inline void operator+=(const Duration<_Clock>& rhs) { m_timestamp += rhs.count(); }
-    inline void operator-=(const Duration<_Clock>& rhs) { m_timestamp -= rhs.count(); }
+    inline void operator=(const TimePoint<Clock>& rhs) { m_timestamp = rhs.m_timestamp; }
+    inline void operator+=(const Duration<Clock>& rhs) { m_timestamp += rhs.count(); }
+    inline void operator-=(const Duration<Clock>& rhs) { m_timestamp -= rhs.count(); }
 
 public: //
 #if HAVE_FULL_CXX11
@@ -195,7 +195,7 @@ public: //
 #endif
 
 public:
-    Duration<_Clock> time_since_epoch() const;
+    Duration<Clock> time_since_epoch() const;
 
 private:
     uint64_t m_timestamp;
@@ -239,17 +239,17 @@ inline long long count_seconds(const steady_clock::duration &t)
     return std::chrono::duration_cast<std::chrono::seconds>(t).count();
 }
 
-inline steady_clock::duration microseconds_from(long t_us)
+inline steady_clock::duration microseconds_from(int64_t t_us)
 {
     return std::chrono::microseconds(t_us);
 }
 
-inline steady_clock::duration milliseconds_from(long t_ms)
+inline steady_clock::duration milliseconds_from(int64_t t_ms)
 {
     return std::chrono::milliseconds(t_ms);
 }
 
-inline steady_clock::duration seconds_from(long t_s)
+inline steady_clock::duration seconds_from(int64_t t_s)
 {
     return std::chrono::seconds(t_s);
 }
@@ -337,12 +337,6 @@ private:
     Mutex& m_Mutex;
 };
 #endif // ENABLE_STDCXX_SYNC
-
-/// The purpose of this typedef is to reduce the number of changes in the code (renamings)
-/// and produce less merge conflicts with some other parallel work done.
-/// TODO: Replace CGuard with ScopedLock. Use UniqueLock only when required.
-typedef UniqueLock CGuard;
-
 
 inline void enterCS(Mutex& m) { m.lock(); }
 inline bool tryEnterCS(Mutex& m) { return m.try_lock(); }
@@ -460,14 +454,14 @@ inline void releaseCond(Condition& cv) { cv.destroy(); }
 class CSync
 {
     Condition* m_cond;
-    CGuard* m_locker;
+    UniqueLock* m_locker;
 
 public:
-    // Locked version: must be declared only after the declaration of CGuard,
+    // Locked version: must be declared only after the declaration of UniqueLock,
     // which has locked the mutex. On this delegate you should call only
-    // signal_locked() and pass the CGuard variable that should remain locked.
+    // signal_locked() and pass the UniqueLock variable that should remain locked.
     // Also wait() and wait_for() can be used only with this socket.
-    CSync(Condition& cond, CGuard& g)
+    CSync(Condition& cond, UniqueLock& g)
         : m_cond(&cond), m_locker(&g)
     {
         // XXX it would be nice to check whether the owner is also current thread
@@ -514,17 +508,17 @@ public:
     // Static ad-hoc version
     static void lock_signal(Condition& cond, Mutex& m)
     {
-        CGuard lk(m); // XXX with thread logging, don't use CGuard directly!
+        ScopedLock lk(m); // XXX with thread logging, don't use ScopedLock directly!
         cond.notify_one();
     }
 
     static void lock_broadcast(Condition& cond, Mutex& m)
     {
-        CGuard lk(m); // XXX with thread logging, don't use CGuard directly!
+        ScopedLock lk(m); // XXX with thread logging, don't use ScopedLock directly!
         cond.notify_all();
     }
 
-    void signal_locked(CGuard& lk ATR_UNUSED)
+    void signal_locked(UniqueLock& lk ATR_UNUSED)
     {
         // EXPECTED: lk.mutex() is LOCKED.
         m_cond->notify_one();
@@ -534,7 +528,7 @@ public:
     // when you don't care whether the associated mutex is locked or not (you
     // accept the case that a mutex isn't locked and the signal gets effectively
     // missed), or you somehow know that the mutex is locked, but you don't have
-    // access to the associated CGuard object. This function, although it does
+    // access to the associated UniqueLock object. This function, although it does
     // the same thing as signal_locked() and broadcast_locked(), is here for
     // the user to declare explicitly that the signal/broadcast is done without
     // being prematurely certain that the associated mutex is locked.
@@ -662,21 +656,21 @@ template<>
 struct DurationUnitName<DUNIT_US>
 {
     static const char* name() { return "us"; }
-    static double count(const steady_clock::duration& dur) { return count_microseconds(dur); }
+    static double count(const steady_clock::duration& dur) { return static_cast<double>(count_microseconds(dur)); }
 };
 
 template<>
 struct DurationUnitName<DUNIT_MS>
 {
     static const char* name() { return "ms"; }
-    static double count(const steady_clock::duration& dur) { return count_microseconds(dur)/1000.0; }
+    static double count(const steady_clock::duration& dur) { return static_cast<double>(count_microseconds(dur))/1000.0; }
 };
 
 template<>
 struct DurationUnitName<DUNIT_S>
 {
     static const char* name() { return "s"; }
-    static double count(const steady_clock::duration& dur) { return count_microseconds(dur)/1000000.0; }
+    static double count(const steady_clock::duration& dur) { return static_cast<double>(count_microseconds(dur))/1000000.0; }
 };
 
 template<eDurationUnit UNIT>
@@ -747,7 +741,7 @@ public: // Observers
 
     struct id
     {
-        id(const pthread_t t)
+        explicit id(const pthread_t t)
             : value(t)
         {}
 
@@ -777,6 +771,19 @@ public: // Internal
 private:
     pthread_t m_thread;
 };
+
+template <class Stream>
+inline Stream& operator<<(Stream& str, const CThread::id& cid)
+{
+#if defined(_WIN32) && defined(PTW32_VERSION)
+    // This is a version specific for pthread-win32 implementation
+    // Here pthread_t type is a structure that is not convertible
+    // to a number at all.
+    return str << pthread_getw32threadid_np(cid.value);
+#else
+    return str << cid.value;
+#endif
+}
 
 namespace this_thread
 {
@@ -827,4 +834,4 @@ CUDTException& GetThreadLocalError();
 } // namespace sync
 } // namespace srt
 
-#endif // __SRT_SYNC_H__
+#endif // INC_SRT_SYNC_H

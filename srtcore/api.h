@@ -50,8 +50,8 @@ modified by
    Haivision Systems Inc.
 *****************************************************************************/
 
-#ifndef __UDT_API_H__
-#define __UDT_API_H__
+#ifndef INC_SRT_API_H
+#define INC_SRT_API_H
 
 
 #include <map>
@@ -206,7 +206,7 @@ public:
       /// @return If the new connection is successfully created: 1 success, 0 already exist, -1 error.
 
    int newConnection(const SRTSOCKET listen, const sockaddr_any& peer, const CPacket& hspkt,
-           CHandShake& w_hs, SRT_REJECT_REASON& w_error);
+           CHandShake& w_hs, int& w_error);
 
    int installAcceptHook(const SRTSOCKET lsn, srt_listen_callback_fn* hook, void* opaq);
 
@@ -226,12 +226,12 @@ public:
    int connect(SRTSOCKET u, const sockaddr* srcname, const sockaddr* tarname, int tarlen);
    int connect(const SRTSOCKET u, const sockaddr* name, int namelen, int32_t forced_isn);
    int connectIn(CUDTSocket* s, const sockaddr_any& target, int32_t forced_isn);
-   int groupConnect(CUDTGroup* g, SRT_SOCKGROUPDATA targets [], int arraysize);
+   int groupConnect(CUDTGroup* g, SRT_SOCKGROUPCONFIG targets [], int arraysize);
    int close(const SRTSOCKET u);
    int close(CUDTSocket* s);
    void getpeername(const SRTSOCKET u, sockaddr* name, int* namelen);
    void getsockname(const SRTSOCKET u, sockaddr* name, int* namelen);
-   int select(ud_set* readfds, ud_set* writefds, ud_set* exceptfds, const timeval* timeout);
+   int select(UDT::UDSET* readfds, UDT::UDSET* writefds, UDT::UDSET* exceptfds, const timeval* timeout);
    int selectEx(const std::vector<SRTSOCKET>& fds, std::vector<SRTSOCKET>* readfds, std::vector<SRTSOCKET>* writefds, std::vector<SRTSOCKET>* exceptfds, int64_t msTimeOut);
    int epoll_create();
    int epoll_clear_usocks(int eid);
@@ -249,7 +249,7 @@ public:
 
    CUDTGroup& addGroup(SRTSOCKET id, SRT_GROUP_TYPE type)
    {
-       srt::sync::CGuard cg (m_GlobControlLock);
+       srt::sync::ScopedLock cg (m_GlobControlLock);
        // This only ensures that the element exists.
        // If the element was newly added, it will be NULL.
        CUDTGroup*& g = m_Groups[id];
@@ -270,7 +270,7 @@ public:
    {
        using srt_logging::mglog;
 
-       srt::sync::CGuard cg (m_GlobControlLock);
+       srt::sync::ScopedLock cg (m_GlobControlLock);
 
        CUDTGroup* pg = map_get(m_Groups, g->m_GroupID, NULL);
        if (pg)
@@ -293,7 +293,7 @@ public:
 
    CUDTGroup* findPeerGroup(SRTSOCKET peergroup)
    {
-       srt::sync::CGuard cg (m_GlobControlLock);
+       srt::sync::ScopedLock cg (m_GlobControlLock);
 
        for (groups_t::iterator i = m_Groups.begin();
                i != m_Groups.end(); ++i)
